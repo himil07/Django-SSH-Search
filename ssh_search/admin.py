@@ -1,10 +1,10 @@
 from django.contrib import admin
 
-from ssh_search.models import User, SocialLogin
+from ssh_search.models import SiteUser, SocialLogin
 # Register your models here.
 
 # admin.site.register(User)
-@admin.register(User)
+@admin.register(SiteUser)
 class UserAdmin(admin.ModelAdmin):
     list_display = ('_id', 'email', 'first_name', 'last_name', 'session_id')
 

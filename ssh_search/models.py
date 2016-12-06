@@ -1,6 +1,10 @@
 from django.db import models
 
-class User(models.Model):
+class TimeStampedModel(models.Model):
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+
+class SiteUser(TimeStampedModel):
     # Primary Key
     _id = models.BigAutoField(primary_key=True)
 
@@ -16,12 +20,12 @@ class User(models.Model):
         return self.email
 
 
-class SocialLogin(models.Model):
+class SocialLogin(TimeStampedModel):
     # Primary Key
     _id = models.BigAutoField(primary_key=True)
 
     # Foreign Key
-    user = models.ForeignKey('User', on_delete=models.SET_NULL, null=True ,to_field='email')
+    user = models.ForeignKey('SiteUser', on_delete=models.CASCADE, null=True ,to_field='email')
 
     # Other
     auth_token = models.CharField(max_length=64, null=True, blank=True)

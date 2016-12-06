@@ -55,7 +55,24 @@ def login(request):
 
 @csrf_protect
 def register(request):
-    return render(request, 'ssh_search/test.html')
+    if request.method == 'POST':
+        register_form = RegisterFormInput(data=request.POST)
+
+        if register_form.is_valid():
+            full_name = register_form.cleaned_data.get('full_name')
+            user_name = register_form.cleaned_data.get('user_name')
+            password = register_form.cleaned_data.get('password')
+            repeat_password = register_form.cleaned_data.get('repeat_password')
+
+            # Check whether user_name is available to be taken or not
+
+            # Check whether user has properly entered the password
+            if password != repeat_password:
+                return render(request, 'ssh_search/index.html')
+
+
+
+        return render(request, 'ssh_search/test.html')
 
 def connect(request):
     if request.method == 'GET':
