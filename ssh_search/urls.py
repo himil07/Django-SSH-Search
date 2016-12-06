@@ -9,5 +9,8 @@ urlpatterns = [
     url(r'^home/$', views.home, name='home'),
 
     # Connect to GitHub
-    url(r'^home/connect/$', views.connect, name='connect')
+    url(r'^home/connect/$', views.connect, name='connect'),
+
+    # Retrieve SSH key
+    url(r'^home/retrieve/$', views.retrieve_ssh_key, name='retrieve')
 ]
