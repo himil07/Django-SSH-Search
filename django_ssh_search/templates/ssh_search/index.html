@@ -10,7 +10,8 @@
   </ul>
   <div class="tab-content">
     <div role="tabpanel" class="tab-pane active" id="login">
-      <form class="login-form" method="post" action="/login">
+      <form class="login-form" method="post" action="login/">
+        {% csrf_token %}
         <div class="form-group">
           <label for="userid" class="control-label">Username or Email address</label>
           {{ login_form.user_name }}
@@ -25,9 +26,10 @@
       </form>
     </div>
     <div role="tabpanel" class="tab-pane" id="signup">
-      <form class="signup-form" method="post" action="/register" >
+      <form class="signup-form" method="post" action="register/">
+        {% csrf_token %}
         <div class="form-group">
-          <label for="userid" class="control-label">Full Name</label>
+          <label for="userid" class="control-label">First Name</label>
           {{ register_form.full_name }}
         </div>
         <div class="form-group">

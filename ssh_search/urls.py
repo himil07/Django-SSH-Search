@@ -5,6 +5,12 @@ urlpatterns = [
     # Render Index Page
     url(r'^$', views.index, name='index'),
 
+    # Login with existing user
+    url(r'^login/$', views.login),
+
+    # Registering a new user
+    url(r'^register/$', views.register),
+
     # Render Home Page to the user
     url(r'^home/$', views.home, name='home'),
 

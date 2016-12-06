@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.conf import settings
 from django.http import HttpResponse, HttpRequest
 from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_protect
 from ssh_search.forms import ConnectGithubForm, SearchGithubUserForm, LoginFormInput, RegisterFormInput
 
 import requests, json
@@ -47,6 +48,14 @@ def home(request):
 
 ###################################################################################################
 # FORM ACTIONS
+
+@csrf_protect
+def login(request):
+    return render(request, 'ssh_search/test.html')
+
+@csrf_protect
+def register(request):
+    return render(request, 'ssh_search/test.html')
 
 def connect(request):
     if request.method == 'GET':
