@@ -1,0 +1,17 @@
+.public-key-display, .search-form{
+  display: table-cell;
+  width: 1200px;
+
+}
+
+.public-key-display {
+  padding-right: 30px;
+  padding-left: 30px;
+  color: black;
+}
+
+label{
+  float: left;
+  padding: 10px;
+  padding-left: 0px;
+}

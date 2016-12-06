@@ -22,10 +22,14 @@ STATIC_DIR = os.path.join(BASE_DIR, 'django_ssh_search', 'static')
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'gq(d*u9nt$c_xp4u5ibce%w@s=iw!b1+cwuydfty&($#hq+m&9'
 
+# GITHUB Client ID and Client secret
+CLIENT_ID = 'e2839380361040bb3f3f'
+CLIENT_SECRET = 'a4577e6bcf71872a3eae3e793ce5ad4fdda36fc4'
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 
 # Application definition
