@@ -1,7 +1,6 @@
 .public-key-display, .search-form{
   display: table-cell;
   width: 1200px;
-
 }
 
 .public-key-display {
@@ -10,8 +9,6 @@
   color: black;
 }
 
-label{
-  float: left;
-  padding: 10px;
-  padding-left: 0px;
+.main-page {
+  background-color: #222831;
 }
