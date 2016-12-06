@@ -2,21 +2,31 @@ from django.shortcuts import render
 from django.conf import settings
 from django.http import HttpResponse, HttpRequest
 from django.shortcuts import redirect
-from ssh_search.forms import ConnectGithubForm, SearchGithubUserForm
+from ssh_search.forms import ConnectGithubForm, SearchGithubUserForm, LoginFormInput, RegisterFormInput
 
 import requests, json
 
 # All VIEWS and CONTROLLERS to be written below this line
 ###################################################################################################
+# HELPER FUNCTIONS
+
 def render_blank_forms():
     connect_form = ConnectGithubForm(auto_id=False)
     input_form = SearchGithubUserForm(auto_id=False)
     return connect_form, input_form
 
 ###################################################################################################
+# BASE TEMPLATE RENDERS
 
 def index(request):
-    return render(request, 'ssh_search/base.html', context={'render_page': 'index'})
+    login_form = LoginFormInput(auto_id=False)
+    register_form = RegisterFormInput(auto_id=False)
+
+    return render(request, 'ssh_search/base.html', context={
+        'render_page': 'index',
+        'login_form': login_form,
+        'register_form': register_form
+    })
 
 def home(request):
     gh_connect_form, gh_input_form = render_blank_forms()
@@ -34,6 +44,9 @@ def home(request):
         gh_input_form=gh_input_form)
 
     return render(request, 'ssh_search/base.html', context=context)
+
+###################################################################################################
+# FORM ACTIONS
 
 def connect(request):
     if request.method == 'GET':
@@ -55,7 +68,6 @@ def connect(request):
     return render(request, 'ssh_search/base.html', context={'render_page': 'home', 'name': 'Shreyas',
         'ssh_key': 'No SSH key defined for the user', 'gh_connect_form': gh_connect_form})
 
-####################################################################################################
 def redirect_oauth(request):
     if request.method == 'GET' and request.GET.__contains__('code'):
         auth_code = request.GET.get('code', None)
@@ -126,5 +138,5 @@ def retrieve_ssh_key(request):
         else:
             print(gh_input_form.errors)
 
-
+    # Need Better Redirect
     return HttpResponse(content=ssh_keys)
