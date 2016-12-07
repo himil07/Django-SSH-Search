@@ -2,10 +2,15 @@ from django.shortcuts import render
 from django.conf import settings
 from django.http import HttpResponse, HttpRequest
 from django.shortcuts import redirect
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import Error
 from django.views.decorators.csrf import csrf_protect
-from ssh_search.forms import ConnectGithubForm, SearchGithubUserForm, LoginFormInput, RegisterFormInput
+from django.contrib.auth.hashers import Argon2PasswordHasher, make_password, check_password
 
-import requests, json
+from ssh_search.forms import ConnectGithubForm, SearchGithubUserForm, LoginFormInput, RegisterFormInput
+from ssh_search.models import SiteUser, SocialLogin
+
+import requests, json, uuid
 
 # All VIEWS and CONTROLLERS to be written below this line
 ###################################################################################################
@@ -32,17 +37,18 @@ def index(request):
 def home(request):
     gh_connect_form, gh_input_form = render_blank_forms()
 
+    context = {}
     if request.session.__contains__('context'):
         context = request.session.get('context')
         request.session.__delitem__('context')
 
-    else:
+    if not context:
         context = {
-            'ssh_key': 'No SSH key defined for the user',
+            'ssh_keys': 'No SSH key defined for the user',
         }
 
-    context.update(render_page='home', name='Shreyas', gh_connect_form=gh_connect_form,
-        gh_input_form=gh_input_form)
+    context.update(render_page='home', name=request.session['session_user'],
+        gh_connect_form=gh_connect_form, gh_input_form=gh_input_form)
 
     return render(request, 'ssh_search/base.html', context=context)
 
@@ -65,14 +71,45 @@ def register(request):
             repeat_password = register_form.cleaned_data.get('repeat_password')
 
             # Check whether user_name is available to be taken or not
+            try:
+                user = SiteUser.objects.get(email__exact=user_name)
+
+            except ObjectDoesNotExist:
+                user = SiteUser(email=user_name)
 
             # Check whether user has properly entered the password
             if password != repeat_password:
+                # Inform user that password entered doesn't match so backing off to index
                 return render(request, 'ssh_search/index.html')
 
+            _password = make_password(password, hasher=Argon2PasswordHasher())
+            user.password = _password
 
+            # Split to obtain first and last name of the user
+            name = full_name.split()
+            if(len(name) == 1):
+                user.first_name = name[0]
 
-        return render(request, 'ssh_search/test.html')
+            else:
+                user.first_name = name[0]
+                user.last_name = ' '.join(name[1:])
+
+            # Finally generate a Session ID
+            session_id = uuid.uuid4().hex
+            user.session_id = session_id
+
+            try:
+                user.save()
+                request.session['session_user'] = name[0].title()
+                request.session['sid'] = session_id
+
+            except Error:
+                print('Data not inserted')
+
+                # Inform user there was some problem creating the user report to administrator
+                return redirect('home')
+
+            return redirect('home')
 
 def connect(request):
     if request.method == 'GET':
