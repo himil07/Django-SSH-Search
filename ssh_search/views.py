@@ -21,6 +21,11 @@ def render_blank_forms():
     input_form = SearchGithubUserForm(auto_id=False)
     return connect_form, input_form
 
+def create_session(request, name):
+    session_id = uuid.uuid4().hex
+    request.session['session_user'] = name.title()
+    request.session['sid'] = session_id
+
 ###################################################################################################
 # BASE TEMPLATE RENDERS
 
@@ -57,59 +62,80 @@ def home(request):
 
 @csrf_protect
 def login(request):
-    return render(request, 'ssh_search/test.html')
+    if request.method == 'POST':
+        login_form = LoginFormInput(data=request.POST)
+
+        if not login_form.is_valid():
+            return redirect('index')
+
+        user_name = login_form.cleaned_data.get('user_name')
+        password = login_form.cleaned_data.get('password')
+
+        try:
+            user = SiteUser.objects.get(email__exact=user_name)
+
+        except ObjectDoesNotExist:
+            print('No User') # Do better redirection for the user
+
+
+        if not check_password(password, user.password):
+            return redirect('index')
+
+        create_session(request, user.first_name)
+        return redirect('home')
 
 @csrf_protect
 def register(request):
     if request.method == 'POST':
         register_form = RegisterFormInput(data=request.POST)
 
-        if register_form.is_valid():
-            full_name = register_form.cleaned_data.get('full_name')
-            user_name = register_form.cleaned_data.get('user_name')
-            password = register_form.cleaned_data.get('password')
-            repeat_password = register_form.cleaned_data.get('repeat_password')
+        if not register_form.is_valid():
+            # Redirect with Unknown Error
+            return redirect('index')
 
-            # Check whether user_name is available to be taken or not
-            try:
-                user = SiteUser.objects.get(email__exact=user_name)
+        full_name = register_form.cleaned_data.get('full_name')
+        user_name = register_form.cleaned_data.get('user_name')
+        password = register_form.cleaned_data.get('password')
+        repeat_password = register_form.cleaned_data.get('repeat_password')
 
-            except ObjectDoesNotExist:
-                user = SiteUser(email=user_name)
+        # Check whether user_name is available to be taken or not
+        try:
+            user = SiteUser.objects.get(email__exact=user_name)
 
-            # Check whether user has properly entered the password
-            if password != repeat_password:
-                # Inform user that password entered doesn't match so backing off to index
-                return render(request, 'ssh_search/index.html')
+        except ObjectDoesNotExist:
+            user = SiteUser(email=user_name)
 
-            _password = make_password(password, hasher=Argon2PasswordHasher())
-            user.password = _password
+        # Check whether user has properly entered the password
+        if password != repeat_password:
+            # Inform user that password entered doesn't match so backing off to index
+            return redirect('index')
 
-            # Split to obtain first and last name of the user
-            name = full_name.split()
-            if(len(name) == 1):
-                user.first_name = name[0]
+        user.password = make_password(password, hasher=Argon2PasswordHasher())
 
-            else:
-                user.first_name = name[0]
-                user.last_name = ' '.join(name[1:])
+        # Split to obtain first and last name of the user
+        name = full_name.split()
+        if(len(name) == 1):
+            user.first_name = name[0]
 
-            # Finally generate a Session ID
-            session_id = uuid.uuid4().hex
-            user.session_id = session_id
+        else:
+            user.first_name = name[0]
+            user.last_name = ' '.join(name[1:])
 
-            try:
-                user.save()
-                request.session['session_user'] = name[0].title()
-                request.session['sid'] = session_id
+        # Finally generate a Session ID
+        session_id = uuid.uuid4().hex
+        user.session_id = session_id
 
-            except Error:
-                print('Data not inserted')
+        try:
+            user.save()
+            create_session(request, name[0])
 
-                # Inform user there was some problem creating the user report to administrator
-                return redirect('home')
+        except Error:
+            print('Data not inserted')
 
-            return redirect('home')
+            # Inform user there was some problem creating the user report to administrator
+            return redirect('index')
+
+        return redirect('home')
 
 def connect(request):
     if request.method == 'GET':
