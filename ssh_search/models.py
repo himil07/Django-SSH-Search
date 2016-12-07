@@ -1,9 +1,12 @@
+# Django Imports
 from django.db import models
 
+# Base Model for maintaining DB timestamps on the models objects
 class TimeStampedModel(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
+# Model: To handle Site's user
 class SiteUser(TimeStampedModel):
     # Primary Key
     _id = models.BigAutoField(primary_key=True)
@@ -21,7 +24,7 @@ class SiteUser(TimeStampedModel):
     def __str__(self):
         return self.email
 
-
+# Model: To handle Social Login accounts and authorizations for the user
 class SocialLogin(TimeStampedModel):
     # Primary Key
     _id = models.BigAutoField(primary_key=True)

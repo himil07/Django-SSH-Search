@@ -1,3 +1,4 @@
+# Django Imports
 from django.shortcuts import render
 from django.conf import settings
 from django.http import HttpResponse, HttpRequest
@@ -7,14 +8,17 @@ from django.db import Error
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.hashers import Argon2PasswordHasher, make_password, check_password
 
+# Project Imports
 from ssh_search.forms import ConnectGithubForm, SearchGithubUserForm, LoginFormInput, RegisterFormInput
 from ssh_search.models import SiteUser, SocialLogin
 
+# Python Generic Imports
 import requests, json, uuid
 
 # All VIEWS and CONTROLLERS to be written below this line
 ###################################################################################################
-# HELPER FUNCTIONS
+#                                       HELPER FUNCTIONS                                          #
+###################################################################################################
 
 def set_alert(request, alert_template_name):
     request.session['alert'] = alert_template_name
@@ -33,8 +37,10 @@ def create_session(request, user_name, name):
     request.session['session_user_name'] = name.title()
     request.session['sid'] = session_id
 
+
 ###################################################################################################
-# BASE TEMPLATE RENDERS
+#                                    BASE TEMPLATE RENDERS                                        #
+###################################################################################################
 
 def index(request):
     login_form = LoginFormInput(auto_id=False)
@@ -44,6 +50,9 @@ def index(request):
     if alert:
         delete_alert(request)
 
+    if request.session.get('action') == 'logout':
+        request.session.flush()
+
     return render(request, 'ssh_search/base.html', context={
         'render_page': 'index',
         'login_form': login_form,
@@ -52,6 +61,10 @@ def index(request):
     })
 
 def home(request):
+    # No session object user, redirect user back index
+    if not request.session.keys():
+        return redirect('index')
+
     gh_connect_form, gh_input_form = render_blank_forms()
 
     # Clean all the alerts raised on the Login/Register Form
@@ -70,14 +83,15 @@ def home(request):
             'ssh_keys': 'No SSH key defined for the user',
         }
 
-    context.update(render_page='home', name=request.session['session_user_name'],
+    context.update(render_page='home', name=request.session.get('session_user_name', None),
         gh_connect_form=gh_connect_form, gh_input_form=gh_input_form, alert=alert)
 
     return render(request, 'ssh_search/base.html', context=context)
 
-###################################################################################################
-# FORM ACTIONS
 
+###################################################################################################
+#                                         BASIC ACTIONS                                           #
+###################################################################################################
 @csrf_protect
 def login(request):
     if request.method == 'POST':
@@ -123,13 +137,12 @@ def register(request):
         try:
             user = SiteUser.objects.get(email__exact=user_name)
 
+            # User already exists in the database
+            if user:
+                set_alert(request, 'user_exists')
+                return redirect('index')
         except ObjectDoesNotExist:
             user = SiteUser(email=user_name)
-
-        # User already exists in the database
-        if user:
-            set_alert(request, 'user_exists')
-            return redirect('index')
 
         # Check whether user has properly entered the password
         if password != repeat_password:
@@ -153,15 +166,28 @@ def register(request):
 
         try:
             user.save()
-            create_session(request, user_name)
+            create_session(request, user_name, name[0])
 
         except Error:
             # Inform user there was some problem creating the user report to administrator
             set_alert(request, 'generic_error')
             return redirect('index')
 
+        set_alert(request, 'user_logged_in')
         return redirect('home')
 
+def logout(request):
+    request.session['action'] = 'logout'
+    set_alert(request, 'user_logged_out')
+
+    return redirect('index')
+
+
+###################################################################################################
+# External API requests to GitHub for connecting, obtaining access tokens and retrieving SSH key  #
+###################################################################################################
+
+################################ SEND AUTHORIZATION REQUEST TO GH ##################################
 def connect(request):
     if request.method == 'GET':
         gh_connect_form = ConnectGithubForm(data=request.GET)
@@ -185,10 +211,15 @@ def connect(request):
                 'gh_connect_form': gh_connect_form
             })
 
+############################ HANDLE GH REDIRECT AND OBTAIN ACCESS CODE #############################
 def redirect_oauth(request):
-    if SocialLogin.objects.get(user_id=request.session['session_user']):
+    try:
+        SocialLogin.objects.get(user_id=request.session['session_user'])
         set_alert(request, 'github_connection_exists')
         return redirect('home')
+
+    except ObjectDoesNotExist:
+        pass
 
     if request.method == 'GET' and request.GET.__contains__('code'):
         auth_code = request.GET.get('code', None)
@@ -234,6 +265,7 @@ def redirect_oauth(request):
         set_alert(request, 'err_connecting_github')
         return redirect('home')
 
+################################# RETRIEVE GH USER SSH KEYS ########################################
 def retrieve_ssh_key(request):
     gh_connect_form, gh_input_form = render_blank_forms()
 
@@ -255,7 +287,6 @@ def retrieve_ssh_key(request):
             url = 'https://api.github.com/users/{0}/keys'.format(gh_user)
 
             response = requests.get(url, headers=headers)
-
             if response.status_code != 200:
                 return redirect('home')
 
@@ -273,5 +304,11 @@ def retrieve_ssh_key(request):
 
         else:
             print(gh_input_form.errors)
+
+            set_alert(request, 'generic_error')
+            return redirect('home')
+
     else:
         set_alert(request, 'generic_error')
+
+###################################################################################################

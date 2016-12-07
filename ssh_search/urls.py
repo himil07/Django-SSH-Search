@@ -1,4 +1,7 @@
+# Django Imports
 from django.conf.urls import url
+
+# Project Imports
 from ssh_search import views
 
 urlpatterns = [
@@ -18,5 +21,8 @@ urlpatterns = [
     url(r'^home/connect/$', views.connect, name='connect'),
 
     # Retrieve SSH key
-    url(r'^home/retrieve/$', views.retrieve_ssh_key, name='retrieve')
+    url(r'^home/retrieve/$', views.retrieve_ssh_key, name='retrieve'),
+
+    # Logging out from the page
+    url(r'^home/logout/$', views.logout),
 ]

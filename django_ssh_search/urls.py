@@ -13,6 +13,7 @@ Including another URLconf
     1. Import the include() function: from django.conf.urls import url, include
     2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
+# Django Imports
 from django.conf.urls import url, include
 from django.contrib import admin
 from ssh_search import views
@@ -21,8 +22,11 @@ from django.conf import settings
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
-    
+
+    # Redirect to GitHub for obtaining code
     url(r'^redirect_oauth/$', views.redirect_oauth),
 
+    # Redirect all the urls to application
     url(r'^main/', include('ssh_search.urls'))
+
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_DIR)
