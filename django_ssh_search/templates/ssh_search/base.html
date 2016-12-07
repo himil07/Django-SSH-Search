@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
     <link rel="stylesheet" href="/static/css/base.css">
 
+    <script src="https://cdn.jsdelivr.net/jquery/2.1.3/jquery.min.js"></script>
+
     <!--[if lt IE 9]>
       <script src="https://cdn.jsdelivr.net/html5shiv/3.7.2/html5shiv.min.js"></script>
       <script src="https://cdn.jsdelivr.net/respond/1.4.2/respond.min.js"></script>
@@ -18,13 +20,35 @@
   </head>
   <body class="login-page">
 
+    {% if alert == 'usr_password_mismatch' %}
+      {% include "../ssh_search/alerts/user_pwd_mismatch.html" %}
+
+    {% elif alert == 'password_mismatch' %}
+      {% include "../ssh_search/alerts/password_mismatch.html" %}
+
+    {% elif alert == 'user_exists' %}
+      {% include "../ssh_search/alerts/user_exists.html" %}
+
+    {% elif alert == 'user_not_exist' %}
+      {% include "../ssh_search/alerts/user_not_exist.html" %}
+
+    {% elif alert == 'generic_error' %}
+      {% include "../ssh_search/alerts/generic_error.html" %}
+
+    {% endif %}
+
     {% if render_page == 'index' %}
       {% include "../ssh_search/index.html" %}
     {% else %}
       {% include "../ssh_search/home.html" %}
     {% endif %}
 
-    <script src="https://cdn.jsdelivr.net/jquery/2.1.3/jquery.min.js"></script>
+    <script type="text/javascript">
+      $(".alert").fadeTo(2000, 0.5).slideUp(500, function(){
+        $(".alert").slideUp(500);
+      });
+    </script>
+
     <script src="https://cdn.jsdelivr.net/bootstrap/3.3.5/js/bootstrap.min.js"></script>
   </body>
 </html>

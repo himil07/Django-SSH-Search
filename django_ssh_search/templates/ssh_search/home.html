@@ -71,6 +71,21 @@
 
     <div class="row search-form">
       <div class="col-lg-8 col-md-offset-3">
+
+        {% if alert == 'user_logged_in' %}
+          {% include "../ssh_search/alerts/user_logged_in.html" %}
+
+        {% elif alert == 'connected_github' %}
+          {% include "../ssh_search/alerts/connected_github.html" %}
+
+        {% elif alert == 'github_connection_exists' %}
+          {% include "../ssh_search/alerts/github_connection_exists.html" %}
+
+        {% elif alert == 'err_connecting_github' %}
+          {% include "../ssh_search/alerts/connected_github.html" %}
+
+        {% endif%}
+
         <form action="retrieve/ " method="get">
           <div class="input-group">
             {{ gh_input_form.gh_user }}

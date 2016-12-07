@@ -16,14 +16,21 @@ import requests, json, uuid
 ###################################################################################################
 # HELPER FUNCTIONS
 
+def set_alert(request, alert_template_name):
+    request.session['alert'] = alert_template_name
+
+def delete_alert(request):
+    request.session.pop('alert')
+
 def render_blank_forms():
     connect_form = ConnectGithubForm(auto_id=False)
     input_form = SearchGithubUserForm(auto_id=False)
     return connect_form, input_form
 
-def create_session(request, name):
+def create_session(request, user_name, name):
     session_id = uuid.uuid4().hex
-    request.session['session_user'] = name.title()
+    request.session['session_user'] = user_name
+    request.session['session_user_name'] = name.title()
     request.session['sid'] = session_id
 
 ###################################################################################################
@@ -33,27 +40,38 @@ def index(request):
     login_form = LoginFormInput(auto_id=False)
     register_form = RegisterFormInput(auto_id=False)
 
+    alert = request.session.get('alert', None)
+    if alert:
+        delete_alert(request)
+
     return render(request, 'ssh_search/base.html', context={
         'render_page': 'index',
         'login_form': login_form,
-        'register_form': register_form
+        'register_form': register_form,
+        'alert': alert
     })
 
 def home(request):
     gh_connect_form, gh_input_form = render_blank_forms()
 
+    # Clean all the alerts raised on the Login/Register Form
+    alert = ''
+    if request.session.get('alert', None):
+        alert = request.session.get('alert')
+        delete_alert(request)
+
     context = {}
     if request.session.__contains__('context'):
         context = request.session.get('context')
-        request.session.__delitem__('context')
+        del request.session['context']
 
     if not context:
         context = {
             'ssh_keys': 'No SSH key defined for the user',
         }
 
-    context.update(render_page='home', name=request.session['session_user'],
-        gh_connect_form=gh_connect_form, gh_input_form=gh_input_form)
+    context.update(render_page='home', name=request.session['session_user_name'],
+        gh_connect_form=gh_connect_form, gh_input_form=gh_input_form, alert=alert)
 
     return render(request, 'ssh_search/base.html', context=context)
 
@@ -75,13 +93,16 @@ def login(request):
             user = SiteUser.objects.get(email__exact=user_name)
 
         except ObjectDoesNotExist:
-            print('No User') # Do better redirection for the user
+            set_alert(request, 'user_not_exist')
+            return redirect('index')
 
 
         if not check_password(password, user.password):
+            set_alert(request, 'usr_password_mismatch')
             return redirect('index')
 
-        create_session(request, user.first_name)
+        create_session(request, user.email, user.first_name)
+        set_alert(request, 'user_logged_in')
         return redirect('home')
 
 @csrf_protect
@@ -105,9 +126,14 @@ def register(request):
         except ObjectDoesNotExist:
             user = SiteUser(email=user_name)
 
+        # User already exists in the database
+        if user:
+            set_alert(request, 'user_exists')
+            return redirect('index')
+
         # Check whether user has properly entered the password
         if password != repeat_password:
-            # Inform user that password entered doesn't match so backing off to index
+            set_alert(request, 'password_mismatch')
             return redirect('index')
 
         user.password = make_password(password, hasher=Argon2PasswordHasher())
@@ -127,12 +153,11 @@ def register(request):
 
         try:
             user.save()
-            create_session(request, name[0])
+            create_session(request, user_name)
 
         except Error:
-            print('Data not inserted')
-
             # Inform user there was some problem creating the user report to administrator
+            set_alert(request, 'generic_error')
             return redirect('index')
 
         return redirect('home')
@@ -143,7 +168,7 @@ def connect(request):
 
         if gh_connect_form.is_valid():
             # Store this in DB for further reference
-            user_name = form.cleaned_data.get('user_name', '')
+            user_name = gh_connect_form.cleaned_data.get('user_name', '')
 
             # redirect to GitHub for authorizations
             params = 'client_id={0}&client_secret={1}'.format(settings.CLIENT_ID,
@@ -153,17 +178,25 @@ def connect(request):
 
         else:
             print(gh_connect_form.errors)
-
-    return render(request, 'ssh_search/base.html', context={'render_page': 'home', 'name': 'Shreyas',
-        'ssh_key': 'No SSH key defined for the user', 'gh_connect_form': gh_connect_form})
+            return render(request, 'ssh_search/base.html', context={
+                'render_page': 'home',
+                'name': 'Shreyas',
+                'ssh_key': 'No SSH key defined for the user',
+                'gh_connect_form': gh_connect_form
+            })
 
 def redirect_oauth(request):
+    if SocialLogin.objects.get(user_id=request.session['session_user']):
+        set_alert(request, 'github_connection_exists')
+        return redirect('home')
+
     if request.method == 'GET' and request.GET.__contains__('code'):
         auth_code = request.GET.get('code', None)
 
+        # Failure in obtaining the code from Github. Retry Later
         if not auth_code:
-            # More verbose logging with alerts for error messages
-            return redirect('home') # Failure in obtaining the code from Github. Retry Later
+            set_alert(request, 'err_connecting_github')
+            return redirect('home')
 
         # Redirect to Github for access token
         headers = {'Accept': 'application/json'}
@@ -173,26 +206,40 @@ def redirect_oauth(request):
         response = requests.post('https://github.com/login/oauth/access_token', headers=headers,
             params=params)
 
+        # Failure Token already present or some other error
         if response.status_code != 200:
-            # More verbose logging with alerts for error messages
-            return redirect('home') # Failure Token already present or some other error
+            set_alert(request, 'err_connecting_github')
+            return redirect('home')
 
         auth_token = response.json().get('access_token', '')
-        # This auth token needs to stored with social login table against user id
-        print (auth_token) # Temporary needs to be removed
 
-        # More verbose logging with alerts for error messages
-        return redirect('home') # Success in Obtaining an Auth Token
+        # This auth token needs to stored with social login table against user id
+        social_login = SocialLogin(auth_token=auth_token)
+        social_login.site_name = 'github'
+        social_login.user_id = request.session.get('session_user', None)
+
+        try:
+            social_login.save()
+
+        except Error:
+            set_alert(request, 'err_connecting_github')
+            print('Not able to insert token in Database')
+
+        # Success in Obtaining an Auth Token
+        set_alert(request, 'connected_github')
+        return redirect('home')
 
     else:
-        # More verbose logging with alerts for error messages
-        return redirect('home') # Failure with the request
+        # Failure with the request
+        set_alert(request, 'err_connecting_github')
+        return redirect('home')
 
 def retrieve_ssh_key(request):
     gh_connect_form, gh_input_form = render_blank_forms()
 
     # This will be retrieved from the database using ORM
-    access_token = 'f13990846e2c071fe5f89e20c2efe17dba37a16c'
+    user_id = request.session.get('session_user', None)
+    github_account = SocialLogin.objects.get(site_name='github', user_id=user_id)
 
     if request.method == 'GET':
         gh_input_form = SearchGithubUserForm(data=request.GET)
@@ -202,7 +249,7 @@ def retrieve_ssh_key(request):
 
             headers = {
                 'Accept': 'application/vnd.github.v3+json',
-                'access_token': access_token
+                'access_token': github_account.auth_token
             }
 
             url = 'https://api.github.com/users/{0}/keys'.format(gh_user)
@@ -226,6 +273,5 @@ def retrieve_ssh_key(request):
 
         else:
             print(gh_input_form.errors)
-
-    # Need Better Redirect
-    return HttpResponse(content=ssh_keys)
+    else:
+        set_alert(request, 'generic_error')
