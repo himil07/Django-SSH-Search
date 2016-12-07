@@ -1,4 +1,4 @@
-# django-ssh-search
+# Django-SSH-Search
 Web Application to search for SSH keys of specified GitHub user powered by Django Python and PostgreSQL
 
 #### Pre-Requisites
